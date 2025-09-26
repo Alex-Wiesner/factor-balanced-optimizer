@@ -9,25 +9,72 @@ def cli():
 
 @cli.command()
 @click.argument("tickers")
-@click.option("--variance_weight", type=float, default=0.3)
-@click.option("--exp_weight", type=float, default=0.02)
-@click.option("--max_factor", type=float, default=2)
-@click.option("--leverage_cap", type=float, default=2)
-@click.option("--gross_cap", type=float, default=None)
-def solve(tickers, variance_weight, exp_weight, max_factor, leverage_cap, gross_cap):
+@click.option(
+    "--variance-weight",
+    type=click.FloatRange(min=0),
+    default=0.10,
+    help="Weight on the variance‑penalty term (larger → lower variance).",
+)
+@click.option(
+    "--exposure-weight",
+    type=click.FloatRange(min=0),
+    default=0.02,
+    help="Weight on the factor‑exposure reward term.",
+)
+@click.option(
+    "--max-factor",
+    type=click.FloatRange(min=0),
+    default=2.0,
+    help="Maximum absolute exposure per factor.",
+)
+@click.option(
+    "--leverage-cap",
+    type=click.FloatRange(min=0),
+    default=2.0,
+    help="Long/short leverage limit per asset.",
+)
+@click.option(
+    "--gross-cap",
+    type=click.FloatRange(min=0),
+    default=None,
+    help="Optional cap on gross exposure (sum of absolute weights).",
+)
+@click.option(
+    "--solver",
+    type=click.Choice(["ECOS", "OSQP", "SCS"], case_sensitive=False),
+    default="ECOS",
+    help="Primary CVXPY solver to use.",
+)
+@click.option(
+    "--output",
+    type=click.Path(dir_okay=False, writable=True),
+    help="Write resulting weights to a JSON file.",
+)
+def solve(
+    tickers,
+    variance_weight,
+    exposure_weight,
+    max_factor,
+    leverage_cap,
+    gross_cap,
+    solver,
+    output,
+):
     tickers = [t.strip().upper() for t in tickers.split(",") if t.strip()]
-    var_w, exp_w, max_factor_abs, leverage_cap, gross_exp_cap = (
+    weights = solve_weights(
+        tickers,
         variance_weight,
-        exp_weight,
+        exposure_weight,
         max_factor,
         leverage_cap,
         gross_cap,
+        solver,
     )
-    print(
-        solve_weights(
-            tickers, var_w, exp_w, max_factor_abs, leverage_cap, gross_exp_cap
-        )
-    )
+
+    if output:
+        weights.to_json(output, orient="index", indent=2)
+    else:
+        click.echo(weights)
 
 
 if __name__ == "__main__":

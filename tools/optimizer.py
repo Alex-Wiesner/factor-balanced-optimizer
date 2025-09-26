@@ -1,6 +1,9 @@
 from tools.fetch_data import fetch_factors, fetch_returns
 import cvxpy as cp
+import numpy as np
 import pandas as pd
+import datetime
+from sklearn.covariance import LedoitWolf
 
 
 def solve_weights(
@@ -10,10 +13,24 @@ def solve_weights(
     max_factor_abs: float = 2.0,
     leverage_cap: float = 2.0,
     gross_exposure_cap: float | None = None,
+    solver: str = "ECOS",
 ) -> pd.Series:
-    Sigma = fetch_returns(tickers, start="2020-01-01").cov().values
+    if any(v < 0 for v in (variance_weight, exposure_weight)):
+        raise ValueError("Weights must be non‑negative.")
+    if max_factor_abs < 0:
+        raise ValueError("max_factor_abs cannot be negative.")
+
+    ret = fetch_returns(
+        tickers, start=datetime.date.today() - datetime.timedelta(365))
+    Sigma = LedoitWolf().fit(ret).covariance_
+    cond = np.linalg.cond(Sigma)
+    if cond > 1e12:
+        raise ValueError(
+            f"Covariance matrix ill‑conditioned (cond={cond:.2e})")
+
     F = fetch_factors(tickers).values
-    w = cp.Variable((Sigma.shape[0], 1))
+    n = len(tickers)
+    w = cp.Variable((n, 1))
 
     exposure = F.T @ w
     avrg_exposure = cp.mean(exposure)
@@ -31,11 +48,22 @@ def solve_weights(
         constraints.append(cp.abs(exposure) <= max_factor_abs)
 
     prob = cp.Problem(obj, constraints)
-    prob.solve()
+    try:
+        prob.solve(solver=getattr(cp, solver))
+    except (cp.SolverError, AttributeError):
+        # fallback to OSQP, then SCS
+        for alt in ("OSQP", "SCS"):
+            try:
+                prob.solve(solver=getattr(cp, alt))
+                break
+            except cp.SolverError:
+                continue
+        else:
+            raise RuntimeError("All solvers failed.")
 
     if prob.status not in ("optimal", "optimal_inaccurate"):
-        raise RuntimeError(f"Solver finished with status {prob.status}.")
+        raise RuntimeError(f"Solver finished with status {prob.status}")
 
-    weights = w.value.ravel()
+    weights = pd.Series(w.value.ravel(), index=tickers)
 
-    return pd.Series(weights, index=tickers)
+    return weights
