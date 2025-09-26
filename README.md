@@ -1,1 +1,1 @@
-# factor-parity-portfolio-builder
+# Factor-Balanced Portfolio Optimizer
