@@ -1,4 +1,7 @@
 from tools.optimizer import solve_weights
+from tools.backtest import run_backtest
+from tools.fetch_data import validate_tickers
+from typing import Union
 import click
 
 
@@ -60,9 +63,10 @@ def solve(
     solver,
     output,
 ):
-    tickers = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    valid_tickers, invalid_tickers = validate_tickers(ticker_list)
     weights = solve_weights(
-        tickers,
+        valid_tickers,
         variance_weight,
         exposure_weight,
         max_factor,
@@ -74,7 +78,58 @@ def solve(
     if output:
         weights.to_json(output, orient="index", indent=2)
     else:
+        click.echo(f"Removed invalid tickers: {', '.join(invalid_tickers)}")
         click.echo(weights)
+
+
+@cli.command()
+@click.argument("tickers")
+@click.argument("start")
+@click.argument("end")
+@click.option("--freq", default="ME", help="Rebalance frequency (D,W,ME,Q)")
+@click.option("--tc", default=5.0, help="Transaction cost in bps")
+@click.option("--variance_weight", default=0.07, type=float)
+@click.option("--exposure_weight", default=0.02, type=float)
+@click.option("--max_factor", default="2.0", type=str)
+@click.option("--leverage_cap", default=2.0, type=float)
+@click.option("--gross_cap", default=None, type=float)
+@click.option("--solver", default="ECOS")
+@click.option("--no-plot", is_flag=True, default=False)
+def backtest(
+    tickers,
+    start,
+    end,
+    freq,
+    tc,
+    variance_weight,
+    exposure_weight,
+    max_factor,
+    leverage_cap,
+    gross_cap,
+    solver,
+    no_plot,
+):
+    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    valid_tickers, invalid_tickers = validate_tickers(ticker_list)
+    if type(max_factor) is str:
+        max_factor = [float(t) for t in max_factor.split(",")]
+    optimizer_kwargs = {
+        "variance_weight": variance_weight,
+        "exposure_weight": exposure_weight,
+        "max_factor_abs": max_factor,
+        "leverage_cap": leverage_cap,
+        "gross_exposure_cap": gross_cap,
+        "solver": solver,
+    }
+    run_backtest(
+        tickers=ticker_list,
+        start=start,
+        end=end,
+        rebalance_freq=freq,
+        tc_bps=tc,
+        optimizer_kwargs=optimizer_kwargs,
+        plot=not no_plot,
+    )
 
 
 if __name__ == "__main__":
