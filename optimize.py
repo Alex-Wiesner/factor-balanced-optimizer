@@ -1,7 +1,6 @@
 from tools.optimizer import solve_weights
 from tools.backtest import run_backtest
 from tools.fetch_data import validate_tickers
-from typing import Union
 import click
 
 

@@ -56,7 +56,7 @@ python optimize.py backtest TICKERS START END [OPTIONS]
 |--solver|CVXPY solver to use (ECOS, OSQP, SCS).|ECOS|
 |--no-plot|Skip saving the performance chart.|False|
 
-**Result** - prints a performance summary, writes backtes_report.png (unless --n0-plot) and returns the NAV series and weight hisotry (useful for further analysis).
+**Result** - prints a performance summary and writes backtes_report.png (unless --no-plot).
 
 ## License
 
