@@ -26,8 +26,7 @@ def cli():
 )
 @click.option(
     "--max-factor",
-    type=click.FloatRange(min=0),
-    default=2.0,
+    default="2.0",
     help="Maximum absolute exposure per factor.",
 )
 @click.option(
@@ -78,7 +77,9 @@ def solve(
     if output:
         weights.to_json(output, orient="index", indent=2)
     else:
-        click.echo(f"Removed invalid tickers: {', '.join(invalid_tickers)}")
+        if invalid_tickers:
+            click.echo(f"Removed invalid tickers: {
+                       ', '.join(invalid_tickers)}")
         click.echo(weights)
 
 
@@ -88,7 +89,7 @@ def solve(
 @click.argument("end")
 @click.option("--freq", default="ME", help="Rebalance frequency (D,W,ME,Q)")
 @click.option("--tc", default=5.0, help="Transaction cost in bps")
-@click.option("--variance_weight", default=0.07, type=float)
+@click.option("--variance_weight", default=0.10, type=float)
 @click.option("--exposure_weight", default=0.02, type=float)
 @click.option("--max_factor", default="2.0", type=str)
 @click.option("--leverage_cap", default=2.0, type=float)
